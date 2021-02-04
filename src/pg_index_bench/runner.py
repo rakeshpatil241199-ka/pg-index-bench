@@ -6,7 +6,12 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from pg_index_bench.config import BenchmarkConfig, DBConfig
-from pg_index_bench.db import analyze_tables, execute_sql_file, get_connection, get_storage_footprint
+from pg_index_bench.db import (
+    execute_sql_file,
+    get_connection,
+    get_storage_footprint,
+    vacuum_analyze_tables,
+)
 from pg_index_bench.explain_parser import ExplainMetrics, parse_explain_json
 
 
@@ -103,7 +108,8 @@ def run_profile_suite(
     else:
         raise ValueError(f"Unsupported profile: {profile}")
 
-    analyze_tables(db_cfg)
+    # Refresh planner histograms AND Visibility Map bits before timing queries
+    vacuum_analyze_tables(db_cfg)
 
     queries_dir = bench_cfg.sql_dir / "queries"
     results: List[Dict[str, Any]] = []

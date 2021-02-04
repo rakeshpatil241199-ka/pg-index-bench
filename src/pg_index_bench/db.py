@@ -32,11 +32,21 @@ def execute_sql_file(cfg: DBConfig, sql_path: Path) -> None:
             cur.execute(sql_text)
 
 
-def analyze_tables(cfg: DBConfig) -> None:
+def vacuum_analyze_tables(cfg: DBConfig) -> None:
+    """Run VACUUM (ANALYZE) outside a transaction block.
+
+    Updates pg_statistic histograms AND marks all-visible pages in the
+    Visibility Map so PostgreSQL Covering Index (INCLUDE) queries execute true
+    zero-heap-fetch Index-Only Scans instead of falling back to heap lookups.
+    """
     with get_connection(cfg, autocommit=True) as conn:
         with conn.cursor() as cur:
-            cur.execute("ANALYZE accounts;")
-            cur.execute("ANALYZE ledger_entries;")
+            cur.execute("VACUUM (ANALYZE) accounts;")
+            cur.execute("VACUUM (ANALYZE) ledger_entries;")
+
+
+def analyze_tables(cfg: DBConfig) -> None:
+    vacuum_analyze_tables(cfg)
 
 
 def get_storage_footprint(cfg: DBConfig) -> Dict[str, Any]:
