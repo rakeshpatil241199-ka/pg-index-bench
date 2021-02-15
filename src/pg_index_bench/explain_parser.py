@@ -26,6 +26,9 @@ class ExplainMetrics:
     shared_written_blocks: int
     temp_read_blocks: int
     temp_written_blocks: int
+    heap_fetches: int = 0
+    exact_heap_blocks: int = 0
+    lossy_heap_blocks: int = 0
     scan_types: List[str] = field(default_factory=list)
     indexes_used: List[str] = field(default_factory=list)
 
@@ -45,14 +48,20 @@ def _walk_plan_node(
     node: Dict[str, Any],
     scans: Set[str],
     indexes: Set[str],
+    counters: Dict[str, int],
 ) -> None:
     node_type = node.get("Node Type", "")
     if node_type in SCAN_NODE_TYPES:
         scans.add(node_type)
     if "Index Name" in node and node["Index Name"]:
         indexes.add(str(node["Index Name"]))
+
+    counters["heap_fetches"] += int(node.get("Heap Fetches", 0))
+    counters["exact_heap_blocks"] += int(node.get("Exact Heap Blocks", 0))
+    counters["lossy_heap_blocks"] += int(node.get("Lossy Heap Blocks", 0))
+
     for child in node.get("Plans", []):
-        _walk_plan_node(child, scans, indexes)
+        _walk_plan_node(child, scans, indexes, counters)
 
 
 def parse_explain_json(explain_payload: Any) -> ExplainMetrics:
@@ -72,7 +81,8 @@ def parse_explain_json(explain_payload: Any) -> ExplainMetrics:
 
     scans: Set[str] = set()
     indexes: Set[str] = set()
-    _walk_plan_node(plan, scans, indexes)
+    counters = {"heap_fetches": 0, "exact_heap_blocks": 0, "lossy_heap_blocks": 0}
+    _walk_plan_node(plan, scans, indexes, counters)
 
     return ExplainMetrics(
         planning_time_ms=float(root.get("Planning Time", 0.0)),
@@ -85,6 +95,9 @@ def parse_explain_json(explain_payload: Any) -> ExplainMetrics:
         shared_written_blocks=int(plan.get("Shared Written Blocks", 0)),
         temp_read_blocks=int(plan.get("Temp Read Blocks", 0)),
         temp_written_blocks=int(plan.get("Temp Written Blocks", 0)),
+        heap_fetches=counters["heap_fetches"],
+        exact_heap_blocks=counters["exact_heap_blocks"],
+        lossy_heap_blocks=counters["lossy_heap_blocks"],
         scan_types=sorted(scans),
         indexes_used=sorted(indexes),
     )

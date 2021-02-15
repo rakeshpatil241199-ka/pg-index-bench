@@ -38,6 +38,7 @@ class QueryBenchmarkSummary:
     avg_shared_hit_blocks: float
     avg_shared_read_blocks: float
     buffer_hit_ratio_pct: float
+    heap_fetches: int
     scan_types: List[str]
     indexes_used: List[str]
     actual_rows: int
@@ -90,6 +91,7 @@ def benchmark_single_query(
         avg_shared_hit_blocks=round(avg_hits, 1),
         avg_shared_read_blocks=round(avg_reads, 1),
         buffer_hit_ratio_pct=hit_ratio,
+        heap_fetches=last.heap_fetches,
         scan_types=last.scan_types,
         indexes_used=last.indexes_used,
         actual_rows=last.actual_rows,
@@ -108,7 +110,6 @@ def run_profile_suite(
     else:
         raise ValueError(f"Unsupported profile: {profile}")
 
-    # Refresh planner histograms AND Visibility Map bits before timing queries
     vacuum_analyze_tables(db_cfg)
 
     queries_dir = bench_cfg.sql_dir / "queries"
