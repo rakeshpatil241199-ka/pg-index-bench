@@ -1,0 +1,44 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: pg-index-bench-db
+    environment:
+      POSTGRES_DB: ${PGDATABASE:-pg_index_bench}
+      POSTGRES_USER: ${PGUSER:-bench_user}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-bench_secret}
+    ports:
+      - "${PGPORT:-5432}:5432"
+    volumes:
+      - pg_bench_data:/var/lib/postgresql/data
+      - ./docker/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-bench_user} -d ${PGDATABASE:-pg_index_bench}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  bench-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pg-index-bench-runner
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: postgres
+      PGPORT: 5432
+      PGDATABASE: ${PGDATABASE:-pg_index_bench}
+      PGUSER: ${PGUSER:-bench_user}
+      PGPASSWORD: ${PGPASSWORD:-bench_secret}
+      BENCH_ACCOUNTS: ${BENCH_ACCOUNTS:-25000}
+      BENCH_LEDGER_ROWS: ${BENCH_LEDGER_ROWS:-1000000}
+      BENCH_ITERATIONS: ${BENCH_ITERATIONS:-10}
+    volumes:
+      - ./reports:/app/reports
+
+volumes:
+  pg_bench_data:
